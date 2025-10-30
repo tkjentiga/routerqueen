@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Router Queen | Voucher WiFi Cepat (Pink Version)</title>
+    
+    <!-- Memuat Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Lucide Icons untuk navigasi -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Memuat Firebase SDK (Auth dan Firestore) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Variabel global untuk Firebase (Akan diisi di initFirebase)
+        window.db = null;
+        window.auth = null;
+        window.isAuthenticated = false;
+        window.userId = null;
+        
+        // Logika Inisialisasi Firebase
+        async function initFirebase() {
+            try {
+                // setLogLevel('debug'); // Uncomment untuk melihat log debug Firebase
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.warn("Firebase config not found. Running in localStorage mode without proper authentication setup.");
+                    return;
+                }
+
+                const app = initializeApp(firebaseConfig);
+                window.auth = getAuth(app);
+                window.db = getFirestore(app);
+
+                onAuthStateChanged(window.auth, async (user) => {
+                    if (user) {
+                        window.userId = user.uid;
+                        window.isAuthenticated = true;
+                        console.log("Firebase Authenticated. UID:", window.userId);
+                    } else {
+                        // Coba sign in dengan Custom Token yang disediakan lingkungan
+                        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(window.auth, initialAuthToken);
+                        } else {
+                            // Jika tidak ada token, sign in secara Anonymous
+                            await signInAnonymously(window.auth);
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error("Firebase Initialization or Authentication Failed:", e);
+            }
+        }
+
+        // Panggil inisialisasi Firebase saat dokumen siap
+        document.addEventListener('DOMContentLoaded', initFirebase);
+    </script>
+    <style>
+        /* Menggunakan Font Inter */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fef1f2; /* Light pink background */
+            padding-bottom: 64px; /* Ruang untuk bottom navigation bar */
+        }
+        .header-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        /* Style untuk CMS Panel (tersembunyi secara default) */
+        #cms-panel {
+            min-height: calc(100vh - 128px); /* Mengisi sisa layar */
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #db2777; /* Pink 600 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fbcfe8; /* Pink 200 */
+        }
+
+        /* Kelas untuk overlay modal */
+        .modal-overlay {
+            z-index: 50;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        .modal-content {
+            z-index: 60;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#db2777', /* Deep Pink / Rose */
+                        'secondary': '#facc15', /* Kuning Emas / Gold (unchanged) */
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-pink-50">
+
+    <!-- Header (Logo & Nama Website) -->
+    <header class="sticky top-0 z-40 w-full bg-white header-shadow p-3 md:p-4">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <!-- Logo Custom SVG Mahkota -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#db2777" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                    <path d="M19.07 4.93a10 10 0 0 0-14.14 0c-.01 0-.01 0 0 0a10 10 0 0 0 14.14 0z"/>
+                    <path d="M21 17l-3.26-3.26a6 6 0 0 0-8.94 0L3 17"/>
+                    <path d="M12 10l-2-2m4 0l-2 2"/>
+                    <path d="M16 17l-4-4l-4 4"/>
+                    <path d="M12 21l-2-4h4l-2 4z"/>
+                </svg>
+                <h1 class="text-xl font-bold text-primary tracking-tight">Router Queen</h1>
+            </div>
+            <!-- Tombol Admin/CMS (Hanya terlihat di desktop atau jika ada kebutuhan) -->
+            <button id="toggle-cms-desktop" class="hidden md:block text-primary hover:text-secondary p-2 rounded-full transition duration-150" onclick="changeSection('cms-panel')">
+                 <i data-lucide="settings" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="main-content" class="max-w-4xl mx-auto p-4 md:p-6">
+        <!-- Home Section -->
+        <section id="home" class="content-section mb-12 hidden">
+            <div class="text-center py-10 bg-primary/10 rounded-xl shadow-lg">
+                <h2 class="text-3xl font-extrabold text-primary mb-6">Selamat Datang di Router Queen</h2>
+                
+                <!-- Gambar Pamflet/Poster Ukuran 3R (Portrait: Rasio 1:1.42) -->
+                <div class="flex justify-center mb-8">
+                    <img src="https://placehold.co/350x500/db2777/ffffff?text=PAMFLET+VOUCHER+WIFI%0A%0A2K+%3D+3+JAM%0A3K+%3D+6+JAM%0A5K+%3D+12+JAM" 
+                         alt="Poster Voucher WiFi dengan Harga Terbaru" 
+                         class="w-full max-w-xs sm:max-w-sm h-auto rounded-lg shadow-xl border-4 border-secondary object-cover"
+                         onerror="this.onerror=null;this.src='https://placehold.co/350x500/cccccc/000000?text=Poster+WiFi'"
+                    >
+                </div>
+                
+                <p class="text-lg text-gray-700 max-w-xl mx-auto">Lihat langsung penawaran terbaik kami di poster di atas, atau klik tombol di bawah untuk memesan!</p>
+                <button onclick="changeSection('vouchers')" class="mt-6 px-6 py-3 bg-secondary text-primary font-bold rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition duration-300">
+                    Pesan Voucher Sekarang
+                </button>
+            </div>
+        </section>
+
+        <!-- Voucher Section -->
+        <section id="vouchers" class="content-section hidden">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 border-b-2 border-primary pb-2">Pilihan Voucher Terbaik</h2>
+            <div id="voucher-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Voucher cards will be inserted here by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Team Section -->
+        <section id="team" class="content-section hidden">
+            <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 border-b-2 border-primary pb-2">Anggota Pengurus Kami</h2>
+            <div id="team-list" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 text-center">
+                <!-- Team cards will be inserted here by JavaScript -->
+            </div>
+        </section>
+
+        <!-- CMS Panel (Akan disembunyikan jika isAdmin = false) -->
+        <section id="cms-panel" class="content-section hidden">
+            <h2 class="text-2xl md:text-3xl font-bold text-primary mb-6">Panel Admin (CMS Lokal)</h2>
+            <p class="text-sm text-red-500 mb-4">*Data CMS disimpan di browser Anda (`localStorage`). Untuk database real-time dan multi-user, migrasi ke Firestore sangat disarankan.</p>
+
+            <!-- CMS Tabs -->
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button onclick="showCMSTab('voucher-management')" class="cms-tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition duration-150" id="tab-voucher">
+                        Voucher
+                    </button>
+                    <button onclick="showCMSTab('team-management')" class="cms-tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition duration-150" id="tab-team">
+                        Tim
+                    </button>
+                    <button onclick="showCMSTab('order-log')" class="cms-tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition duration-150" id="tab-log">
+                        Log Pesanan
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Voucher Management Tab -->
+            <div id="voucher-management" class="cms-tab-content pt-6">
+                <h3 class="text-xl font-semibold mb-4 text-gray-700">Tambah Voucher Baru</h3>
+                <form id="voucher-form" class="space-y-4 p-4 border rounded-lg bg-white shadow-md mb-8">
+                    <input type="hidden" id="voucher-id">
+                    <input type="text" id="voucher-name" placeholder="Nama Voucher (cth: Paket 3 Jam)" required class="w-full p-3 border border-gray-300 rounded-lg">
+                    <input type="number" id="voucher-price" placeholder="Harga (cth: 5000)" required class="w-full p-3 border border-gray-300 rounded-lg">
+                    <textarea id="voucher-desc" placeholder="Deskripsi Singkat (cth: Kecepatan 10Mbps, tanpa kuota)" required class="w-full p-3 border border-gray-300 rounded-lg"></textarea>
+                    <button type="submit" class="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition duration-150">Simpan Voucher</button>
+                </form>
+
+                <h3 class="text-xl font-semibold mb-4 text-gray-700">Daftar Voucher (Klik untuk Edit)</h3>
+                <div id="current-vouchers" class="space-y-3">
+                    <!-- Voucher list for CMS will be here -->
+                </div>
+            </div>
+
+            <!-- Team Management Tab -->
+            <div id="team-management" class="cms-tab-content pt-6 hidden">
+                <h3 class="text-xl font-semibold mb-4 text-gray-700">Tambah Anggota Tim</h3>
+                <form id="team-form" class="space-y-4 p-4 border rounded-lg bg-white shadow-md mb-8">
+                    <input type="hidden" id="team-id">
+                    <input type="text" id="team-member-name" placeholder="Nama Anggota" required class="w-full p-3 border border-gray-300 rounded-lg">
+                    <input type="text" id="team-member-position" placeholder="Posisi Kepengurusan (Otomatis: Anggota)" value="Anggota" disabled class="w-full p-3 border border-gray-300 rounded-lg bg-gray-100">
+                    <input type="text" id="team-member-photo" placeholder="URL Foto (cth: https://placehold.co/100x100)" required class="w-full p-3 border border-gray-300 rounded-lg">
+                    <button type="submit" class="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition duration-150">Simpan Anggota</button>
+                </form>
+
+                <h3 class="text-xl font-semibold mb-4 text-gray-700">Daftar Anggota (Klik untuk Edit)</h3>
+                <div id="current-team" class="space-y-3">
+                    <!-- Team list for CMS will be here -->
+                </div>
+            </div>
+
+            <!-- Order Log Tab -->
+            <div id="order-log" class="cms-tab-content pt-6 hidden">
+                <h3 class="text-xl font-semibold mb-4 text-gray-700">Log Pesanan Lokal</h3>
+                <p class="text-sm text-gray-600 mb-4">Ini adalah catatan pesanan yang dibuat di browser ini.</p>
+                <div id="order-log-list" class="space-y-3">
+                    <!-- Order logs will be inserted here -->
+                </div>
+                <button onclick="clearOrderLog()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-150">Hapus Log Pesanan</button>
+            </div>
+
+        </section>
+
+    </main>
+    
+    <!-- Modal Konfirmasi Pesanan -->
+    <div id="order-modal" class="modal-overlay fixed inset-0 flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 transform">
+            <h3 class="text-xl font-bold mb-4 text-primary">Konfirmasi Pesanan</h3>
+            <p class="text-gray-700 mb-4">Anda akan memesan <span id="modal-voucher-name" class="font-bold text-secondary"></span> seharga <span id="modal-voucher-price" class="font-bold text-secondary"></span>.</p>
+            <input type="text" id="customer-name" placeholder="Nama Anda" required class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeModal('order-modal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition duration-150">Batal</button>
+                <button onclick="placeWhatsAppOrder()" class="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition duration-150">
+                    Pesan via WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Login Admin -->
+    <div id="admin-login-modal" class="modal-overlay fixed inset-0 flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 transform text-center">
+            <h3 class="text-xl font-bold mb-4 text-primary">Akses Administrator</h3>
+            <p class="text-gray-700 mb-4">Masukkan Kunci Admin untuk melanjutkan.</p>
+            <input type="password" id="admin-key-input" placeholder="Kunci Admin" required class="w-full p-3 border border-gray-300 rounded-lg mb-4 text-center tracking-wider">
+            <p id="login-error-message" class="text-red-500 text-sm mb-4 hidden">Kunci salah. Coba lagi.</p>
+            <div class="flex justify-center space-x-3">
+                <button onclick="closeModal('admin-login-modal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition duration-150">Batal</button>
+                <button onclick="attemptAdminLogin()" class="px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition duration-150">
+                    Login
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Fixed Bottom Navigation Bar (Mobile-First) -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-2xl md:hidden">
+        <div class="flex justify-around items-center h-16">
+            <button onclick="changeSection('home')" class="nav-btn flex flex-col items-center justify-center w-1/5 text-gray-500 hover:text-primary transition duration-150" data-section="home">
+                <i data-lucide="home" class="w-5 h-5"></i>
+                <span class="text-xs mt-1">Beranda</span>
+            </button>
+            <button onclick="changeSection('vouchers')" class="nav-btn flex flex-col items-center justify-center w-1/5 text-gray-500 hover:text-primary transition duration-150" data-section="vouchers">
+                <i data-lucide="wifi" class="w-5 h-5"></i>
+                <span class="text-xs mt-1">Voucher</span>
+            </button>
+            <button onclick="changeSection('team')" class="nav-btn flex flex-col items-center justify-center w-1/5 text-gray-500 hover:text-primary transition duration-150" data-section="team">
+                <i data-lucide="users" class="w-5 h-5"></i>
+                <span class="text-xs mt-1">Tim</span>
+            </button>
+            <button onclick="changeSection('cms-panel')" class="nav-btn flex flex-col items-center justify-center w-1/5 text-gray-500 hover:text-primary transition duration-150" data-section="cms-panel">
+                <i data-lucide="wrench" class="w-5 h-5"></i>
+                <span class="text-xs mt-1">Admin</span>
+            </button>
+        </div>
+    </nav>
+
+    <script>
+        // Inisialisasi Lucide Icons
+        lucide.createIcons();
+
+        // --- GLOBAL VARIABLES & INITIALIZATION ---
+        
+        // Admin State
+        let isAdmin = false; 
+        const ADMIN_KEY = 'admin123'; // Kunci Admin (Simulasi Password)
+
+        // Data VOUCHER yang diperbarui
+        const defaultVouchers = [
+            { id: 'v1', name: 'Paket 3 Jam Hemat', price: 2000, desc: 'Internet cepat untuk 3 jam penuh.' },
+            { id: 'v2', name: 'Paket 6 Jam Puas', price: 3000, desc: 'Setengah hari akses, cocok untuk begadang.' },
+            { id: 'v3', name: 'Paket 12 Jam Super', price: 5000, desc: 'Setengah hari penuh, murah dan stabil.' }
+        ];
+
+        let VOUCHERS = JSON.parse(localStorage.getItem('routerQueenVouchers')) || defaultVouchers;
+
+        // DATA TIM yang diperbarui (Posisi Anggota)
+        const defaultTeamMembers = [
+            { id: 't1', name: 'KASNIYAH', position: 'Anggota', photo: 'https://placehold.co/100x100/db2777/ffffff?text=K' }, 
+            { id: 't2', name: 'NUR EVI OKTAVIANI', position: 'Anggota', photo: 'https://placehold.co/100x100/ec4899/ffffff?text=NEO' },
+            { id: 't3', name: 'AISAH RAMADANI', position: 'Anggota', photo: 'https://placehold.co/100x100/facc15/db2777?text=AR' },
+            { id: 't4', name: 'NESIH', position: 'Anggota', photo: 'https://placehold.co/100x100/f472b6/ffffff?text=N' },
+            { id: 't5', name: 'SITI KHOZIJAH', position: 'Anggota', photo: 'https://placehold.co/100x100/db2777/ffffff?text=SK' },
+            { id: 't6', name: 'SA\'ADAH APRILIANTI', position: 'Anggota', photo: 'https://placehold.co/100x100/ec4899/ffffff?text=SA' }
+        ];
+
+        let TEAM_MEMBERS;
+        try {
+            const storedTeam = JSON.parse(localStorage.getItem('routerQueenTeam'));
+            if (storedTeam && storedTeam.length > 0) {
+                // Jika ada data tim tersimpan, pastikan semua posisi adalah "Anggota"
+                TEAM_MEMBERS = storedTeam.map(member => ({
+                    ...member,
+                    position: 'Anggota'
+                }));
+            } else {
+                TEAM_MEMBERS = defaultTeamMembers;
+            }
+            saveData(); 
+            
+        } catch (e) {
+            TEAM_MEMBERS = defaultTeamMembers;
+            saveData();
+        }
+
+        let ORDER_LOGS = JSON.parse(localStorage.getItem('routerQueenOrders')) || [];
+
+        const WHATSAPP_NUMBER = '6281234567890'; // Ganti dengan nomor WhatsApp Anda
+
+        // --- UTIL FUNCTIONS ---
+
+        /** Memuat data ke LocalStorage */
+        function saveData() {
+            localStorage.setItem('routerQueenVouchers', JSON.stringify(VOUCHERS));
+            localStorage.setItem('routerQueenTeam', JSON.stringify(TEAM_MEMBERS));
+        }
+
+        /** Memformat mata uang IDR */
+        function formatRupiah(number) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+        }
+
+        // --- RENDERING FUNCTIONS ---
+
+        /** Merender daftar voucher di halaman depan */
+        function renderVouchers() {
+            const listEl = document.getElementById('voucher-list');
+            listEl.innerHTML = '';
+            VOUCHERS.forEach(v => {
+                const card = `
+                    <div class="bg-white rounded-xl shadow-lg p-5 border-t-4 border-primary hover:shadow-xl transform hover:-translate-y-1 transition duration-300">
+                        <h3 class="text-xl font-bold text-primary mb-2">${v.name}</h3>
+                        <p class="text-3xl font-extrabold text-secondary mb-3">${formatRupiah(v.price)}</p>
+                        <p class="text-gray-600 mb-4 text-sm">${v.desc}</p>
+                        <button onclick="openOrderModal('${v.id}')" class="w-full py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition duration-150">
+                            Pesan Sekarang
+                        </button>
+                    </div>
+                `;
+                listEl.innerHTML += card;
+            });
+        }
+
+        /** Merender daftar anggota tim */
+        function renderTeam() {
+            const listEl = document.getElementById('team-list');
+            listEl.innerHTML = '';
+            TEAM_MEMBERS.forEach(t => {
+                const card = `
+                    <div class="bg-white rounded-xl shadow-md p-4 flex flex-col items-center">
+                        <img src="${t.photo}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/cccccc/000000?text=${t.name.split(' ').map(n=>n[0]).join('')}'" alt="${t.name}" class="w-20 h-20 object-cover rounded-full mb-3 border-4 border-secondary">
+                        <p class="font-bold text-gray-800 text-sm">${t.name}</p>
+                        <p class="text-xs text-primary font-semibold">${t.position}</p>
+                    </div>
+                `;
+                listEl.innerHTML += card;
+            });
+        }
+
+        /** Merender daftar voucher di CMS */
+        function renderCMSVouchers() {
+            const listEl = document.getElementById('current-vouchers');
+            listEl.innerHTML = VOUCHERS.map(v => `
+                <div class="flex justify-between items-center bg-gray-100 p-3 rounded-lg border-l-4 border-primary cursor-pointer hover:bg-gray-200 transition duration-150" onclick="editVoucher('${v.id}')">
+                    <div>
+                        <p class="font-bold">${v.name}</p>
+                        <p class="text-sm text-gray-600">${v.desc.substring(0, 30)}... (${formatRupiah(v.price)})</p>
+                    </div>
+                    <button onclick="event.stopPropagation(); deleteVoucher('${v.id}')" class="text-red-500 hover:text-red-700 p-1 rounded-full">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons(); // Re-render icons after adding new HTML
+        }
+
+        /** Merender daftar anggota tim di CMS */
+        function renderCMSTeam() {
+            const listEl = document.getElementById('current-team');
+            listEl.innerHTML = TEAM_MEMBERS.map(t => `
+                <div class="flex justify-between items-center bg-gray-100 p-3 rounded-lg border-l-4 border-secondary cursor-pointer hover:bg-gray-200 transition duration-150" onclick="editTeam('${t.id}')">
+                    <div>
+                        <p class="font-bold">${t.name}</p>
+                        <p class="text-sm text-gray-600">${t.position}</p>
+                    </div>
+                    <button onclick="event.stopPropagation(); deleteTeam('${t.id}')" class="text-red-500 hover:text-red-700 p-1 rounded-full">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        /** Merender log pesanan di CMS */
+        function renderOrderLog() {
+            const listEl = document.getElementById('order-log-list');
+            if (ORDER_LOGS.length === 0) {
+                listEl.innerHTML = '<p class="text-gray-500 italic">Belum ada pesanan yang tercatat di log lokal.</p>';
+                return;
+            }
+
+            listEl.innerHTML = ORDER_LOGS.reverse().slice(0, 10).map(log => `
+                <div class="bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+                    <p class="font-bold text-sm">${log.name} (${new Date(log.timestamp).toLocaleTimeString()})</p>
+                    <p class="text-xs text-gray-700">${log.product} - ${formatRupiah(log.price)}</p>
+                </div>
+            `).join('');
+        }
+
+
+        // --- NAVIGATION & CMS TABS ---
+
+        /** Membuka Modal Login Admin */
+        function openAdminLoginModal() {
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+            document.getElementById('admin-key-input').value = '';
+            document.getElementById('login-error-message').classList.add('hidden');
+            document.getElementById('admin-key-input').focus();
+        }
+
+        /** Percobaan Login Admin */
+        function attemptAdminLogin() {
+            const key = document.getElementById('admin-key-input').value;
+            const errorEl = document.getElementById('login-error-message');
+            
+            if (key === ADMIN_KEY) {
+                isAdmin = true;
+                closeModal('admin-login-modal');
+                changeSection('cms-panel', true); // Masuk ke CMS
+            } else {
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+
+        /** Mengubah tampilan section utama */
+        function changeSection(sectionId, force = false) {
+            // Cek otorisasi untuk CMS Panel
+            if (sectionId === 'cms-panel' && !isAdmin && !force) {
+                openAdminLoginModal();
+                return; 
+            }
+
+            document.querySelectorAll('.content-section').forEach(sec => {
+                sec.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            // Update active state in bottom nav
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.getAttribute('data-section') === sectionId) {
+                    btn.classList.add('text-primary');
+                    btn.classList.remove('text-gray-500');
+                } else {
+                    btn.classList.add('text-gray-500');
+                    btn.classList.remove('text-primary');
+                }
+            });
+
+            // Re-render content specific to the section
+            if (sectionId === 'vouchers') renderVouchers();
+            if (sectionId === 'team') renderTeam();
+            if (sectionId === 'cms-panel') {
+                showCMSTab('voucher-management'); // Default tab when entering CMS
+                document.getElementById('toggle-cms-desktop').classList.add('text-secondary');
+            } else {
+                document.getElementById('toggle-cms-desktop').classList.remove('text-secondary');
+            }
+        }
+
+        /** Mengubah tab di CMS Panel */
+        function showCMSTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.cms-tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Deactivate all tab buttons
+            document.querySelectorAll('.cms-tab-btn').forEach(btn => {
+                btn.classList.remove('border-primary', 'text-primary');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            // Show current tab content
+            document.getElementById(tabId).classList.remove('hidden');
+
+            // Activate current tab button
+            const tabButton = document.getElementById(`tab-${tabId.replace('-management', '').replace('-', '')}`);
+            if (tabButton) {
+                tabButton.classList.add('border-primary', 'text-primary');
+                tabButton.classList.remove('border-transparent', 'text-gray-500');
+            }
+
+            // Re-render specific content for the tab
+            if (tabId === 'voucher-management') renderCMSVouchers();
+            if (tabId === 'team-management') renderCMSTeam();
+            if (tabId === 'order-log') renderOrderLog();
+        }
+
+        // --- VOUCHER MANAGEMENT LOGIC ---
+
+        document.getElementById('voucher-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('voucher-id').value;
+            const name = document.getElementById('voucher-name').value;
+            const price = parseInt(document.getElementById('voucher-price').value);
+            const desc = document.getElementById('voucher-desc').value;
+
+            if (isNaN(price)) {
+                // Gunakan cara non-alert untuk pesan error
+                console.error("Harga harus berupa angka.");
+                return;
+            }
+
+            if (id) {
+                // Edit existing voucher
+                const index = VOUCHERS.findIndex(v => v.id === id);
+                if (index !== -1) {
+                    VOUCHERS[index] = { id, name, price, desc };
+                }
+            } else {
+                // Add new voucher
+                const newId = 'v' + Date.now();
+                VOUCHERS.push({ id: newId, name, price, desc });
+            }
+
+            saveData();
+            renderCMSVouchers();
+            this.reset();
+            document.getElementById('voucher-id').value = '';
+            document.querySelector('#voucher-form button').textContent = 'Simpan Voucher';
+        });
+
+        function editVoucher(id) {
+            const voucher = VOUCHERS.find(v => v.id === id);
+            if (voucher) {
+                document.getElementById('voucher-id').value = voucher.id;
+                document.getElementById('voucher-name').value = voucher.name;
+                document.getElementById('voucher-price').value = voucher.price;
+                document.getElementById('voucher-desc').value = voucher.desc;
+                document.querySelector('#voucher-form button').textContent = 'Update Voucher';
+            }
+        }
+
+        function deleteVoucher(id) {
+            // Mengganti confirm() dengan notifikasi konsol
+            console.log(`Log: Mencoba menghapus voucher ID ${id}. Ini akan berhasil.`);
+            VOUCHERS = VOUCHERS.filter(v => v.id !== id);
+            saveData();
+            renderCMSVouchers();
+            renderVouchers();
+        }
+
+        // --- TEAM MANAGEMENT LOGIC ---
+
+        document.getElementById('team-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('team-id').value;
+            const name = document.getElementById('team-member-name').value;
+            const photo = document.getElementById('team-member-photo').value;
+            const position = 'Anggota'; // Selalu diset sebagai Anggota
+
+            if (id) {
+                // Edit existing member
+                const index = TEAM_MEMBERS.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    TEAM_MEMBERS[index] = { id, name, position, photo };
+                }
+            } else {
+                // Add new member
+                const newId = 't' + Date.now();
+                TEAM_MEMBERS.push({ id: newId, name, position, photo }); 
+            }
+
+            saveData();
+            renderCMSTeam();
+            this.reset();
+            document.getElementById('team-id').value = '';
+            document.querySelector('#team-form button').textContent = 'Simpan Anggota';
+        });
+
+        function editTeam(id) {
+            const member = TEAM_MEMBERS.find(t => t.id === id);
+            if (member) {
+                document.getElementById('team-id').value = member.id;
+                document.getElementById('team-member-name').value = member.name;
+                // Field position di CMS kini disabled, jadi tidak perlu diisi.
+                document.getElementById('team-member-photo').value = member.photo;
+                document.querySelector('#team-form button').textContent = 'Update Anggota';
+            }
+        }
+
+        function deleteTeam(id) {
+            console.log(`Log: Mencoba menghapus anggota tim ID ${id}. Ini akan berhasil.`);
+            TEAM_MEMBERS = TEAM_MEMBERS.filter(t => t.id !== id);
+            saveData();
+            renderCMSTeam();
+            renderTeam();
+        }
+
+        // --- ORDER LOGIC & MODALS ---
+        let selectedVoucher = null;
+
+        /** Membuka modal pemesanan */
+        function openOrderModal(voucherId) {
+            selectedVoucher = VOUCHERS.find(v => v.id === voucherId);
+            if (selectedVoucher) {
+                document.getElementById('modal-voucher-name').textContent = selectedVoucher.name;
+                document.getElementById('modal-voucher-price').textContent = formatRupiah(selectedVoucher.price);
+                document.getElementById('order-modal').classList.remove('hidden');
+            }
+        }
+
+        /** Menutup modal berdasarkan ID */
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            if (modalId === 'order-modal') {
+                selectedVoucher = null;
+                document.getElementById('customer-name').value = '';
+            }
+        }
+
+        /** Menangani pemesanan via WhatsApp */
+        function placeWhatsAppOrder() {
+            const customerName = document.getElementById('customer-name').value.trim();
+
+            if (!customerName) {
+                // Ganti alert dengan logging
+                console.error('Peringatan: Nama pelanggan harus diisi.');
+                return;
+            }
+
+            if (!selectedVoucher) {
+                console.error('Peringatan: Voucher tidak ditemukan.');
+                return;
+            }
+
+            // 1. Catat ke Log 
+            const orderData = {
+                timestamp: Date.now(),
+                name: customerName,
+                product: selectedVoucher.name,
+                price: selectedVoucher.price,
+                status: 'Menunggu Pembayaran (WhatsApp)'
+            };
+            logOrder(orderData); 
+            saveOrderToSpreadsheet(orderData); 
+
+            // 2. Buat Tautan WhatsApp Otomatis
+            const message = `Halo Router Queen!%0A%0ASaya *${customerName}* ingin memesan voucher:%0A*${selectedVoucher.name}* (${formatRupiah(selectedVoucher.price)}).%0A%0AMohon panduan untuk pembayarannya. Terima kasih!`;
+            const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+
+            // 3. Buka WhatsApp
+            window.open(whatsappUrl, '_blank');
+            
+            // 4. Tutup modal
+            closeModal('order-modal');
+            changeSection('home'); 
+        }
+
+        /** Fungsi untuk logging pesanan lokal */
+        function logOrder(data) {
+            ORDER_LOGS.push(data);
+            localStorage.setItem('routerQueenOrders', JSON.stringify(ORDER_LOGS));
+            console.log('Pesanan dicatat secara lokal:', data);
+        }
+
+        /** Fungsi Hapus Log Pesanan */
+        function clearOrderLog() {
+            console.log('Log: Mencoba menghapus semua Log Pesanan lokal. Ini akan berhasil.');
+            ORDER_LOGS = [];
+            localStorage.removeItem('routerQueenOrders');
+            renderOrderLog();
+        }
+
+        /** SIMULASI PENGIRIMAN DATA KE GOOGLE SPREADSHEET (Placeholder) */
+        async function saveOrderToSpreadsheet(orderData) {
+            // *PENTING*: Fungsi ini adalah placeholder. 
+            // Untuk mengirim data ke database real (Firestore) atau Spreadsheet, 
+            // Anda perlu mengimplementasikan integrasi API yang sesungguhnya di sini.
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const userIdPath = window.userId ? `users/${window.userId}` : 'anonymous';
+            const firestorePath = `/artifacts/${appId}/${userIdPath}/orders`;
+            
+            console.log(`SIMULASI DATABASE: Pesanan akan disimpan di path Firestore: ${firestorePath}`, orderData);
+        }
+        
+        // --- INITIAL SETUP ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Panggil render function pertama
+            changeSection('home');
+            renderVouchers();
+            renderTeam();
+        });
+
+    </script>
+</body>
+</html>
+
